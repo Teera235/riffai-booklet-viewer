@@ -4,14 +4,23 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
     }
 
-    // Booklet metadata is public for viewer links. Writes require an explicit
-    // custom admin claim; a normal authenticated account is not sufficient.
+    // Booklet metadata: anyone can read (public viewer links), only a
+    // whitelisted admin (present in the `admins` collection) can write.
     match /booklets/{slug} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+    }
+
+    // Admin whitelist itself: only existing admins can read/manage it, so a
+    // freshly-Google-authenticated stranger cannot see or edit who the
+    // admins are. The very first admin must be seeded manually (Firebase
+    // Console or Admin SDK) since no admin exists yet to add one.
+    match /admins/{email} {
+      allow read, write: if isAdmin();
     }
 
     // Deny everything else by default.

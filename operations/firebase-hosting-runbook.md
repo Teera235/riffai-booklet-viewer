@@ -35,8 +35,8 @@ Enable Firebase on the selected project and initialize its default Hosting
 site. This one-time action requires an authorized project administrator. In
 Firebase Console, select **Add project**, choose the existing GCP project, and
 enable Hosting. Analytics is not required for this deployment. Create the
-default Firestore database, enable Email/Password Authentication, and create
-the Cloud Storage bucket in the approved data region before the first deploy.
+default Firestore database, enable Google Authentication, and create the Cloud
+Storage bucket in the approved data region before the first deploy.
 
 Verify that the project and Hosting site are visible before creating CI
 credentials:
@@ -111,17 +111,15 @@ itself is also a blocking manual action.
 
 ## 5. Provision the first administrator
 
-Create the operator as a Firebase Authentication user using the approved
-corporate email address. No initial password is stored in this repository or
-the Ops request; the operator must set it through the approved secure handoff.
-From a trusted administrative environment, use the
-Firebase Admin SDK to set the user's custom claim to `{ "admin": true }`.
-Record the approver, target UID, and timestamp. Do not make all authenticated
-users administrators.
+Seed a Firestore document at `admins/{lowercase-corporate-email}` from a
+trusted administrative environment. The document ID is the approved Google
+account email in lowercase; the contents may record the approver and creation
+timestamp. The first record must be seeded administratively because the rules
+allow only an existing administrator to manage this collection.
 
-The user must sign out and sign in again after the claim is assigned so the ID
-token contains the new claim. Firestore and Storage rules deny writes and
-deletes unless this claim is present.
+Firestore and Storage rules deny writes and deletes unless the signed-in
+Google account has a matching document. Do not whitelist consumer accounts or
+all authenticated users.
 
 ## 6. Deploy and verify
 

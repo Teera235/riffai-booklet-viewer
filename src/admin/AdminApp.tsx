@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import {
+  GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   type User,
 } from 'firebase/auth'
 import { auth, isFirebaseConfigured } from '../lib/firebase'
-import { AdminLogin } from './AdminLogin'
-import { AdminDashboard } from './AdminDashboard'
+import { isAdminEmail } from '../lib/admins'
+import { AdminShell } from './AdminShell'
 import '../admin.css'
+
+const googleProvider = new GoogleAuthProvider()
 
 function AdminSetupNotice() {
   return (
@@ -24,56 +27,82 @@ function AdminSetupNotice() {
   )
 }
 
+function AdminAccessDenied({ email, onLogout }: { email: string; onLogout: () => void }) {
+  return (
+    <div className="admin-shell admin-shell--center">
+      <div className="admin-login-card">
+        <h1>ไม่มีสิทธิ์เข้าถึง</h1>
+        <p className="admin-login-subtitle">
+          บัญชี {email} ไม่ได้อยู่ในรายชื่อ admin กรุณาติดต่อผู้ดูแลระบบให้เพิ่มบัญชีนี้
+        </p>
+        <button type="button" className="admin-secondary-button" onClick={onLogout}>
+          ออกจากระบบ
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AdminLoginGate({ onSignIn, error, signingIn }: { onSignIn: () => void; error: string; signingIn: boolean }) {
+  return (
+    <div className="admin-shell admin-shell--center">
+      <div className="admin-login-card">
+        <h1>RIFFAI Admin</h1>
+        <p className="admin-login-subtitle">เข้าสู่ระบบด้วยบัญชี Google เพื่อจัดการ booklet</p>
+        {error && <p className="admin-error">{error}</p>}
+        <button type="button" className="admin-primary-button" onClick={onSignIn} disabled={signingIn}>
+          {signingIn ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบด้วย Google'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function AdminApp() {
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [authError, setAuthError] = useState('')
   const [signingIn, setSigningIn] = useState(false)
 
   useEffect(() => {
     if (!isFirebaseConfigured) return
-    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
-      if (!nextUser) {
-        setUser(null)
-        setAuthReady(true)
-        return
-      }
-
-      setAuthReady(false)
-      try {
-        const token = await nextUser.getIdTokenResult(true)
-        if (token.claims.admin !== true) {
-          setUser(null)
-          setAuthError('บัญชีนี้ไม่มีสิทธิ์ผู้ดูแลระบบ')
-          await signOut(auth)
-          return
-        }
-        setUser(nextUser)
-      } catch {
-        setUser(null)
-        setAuthError('ไม่สามารถตรวจสอบสิทธิ์ผู้ดูแลระบบได้')
-      } finally {
-        setAuthReady(true)
-      }
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser)
+      setAuthReady(true)
     })
     return unsubscribe
   }, [])
+
+  useEffect(() => {
+    if (!user?.email) {
+      setIsAdmin(null)
+      return
+    }
+    let cancelled = false
+    void isAdminEmail(user.email)
+      .then((result) => {
+        if (!cancelled) setIsAdmin(result)
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.email])
 
   if (!isFirebaseConfigured) {
     return <AdminSetupNotice />
   }
 
-  const handleLogin = async (email: string, password: string) => {
+  const handleGoogleSignIn = async () => {
     setAuthError('')
     setSigningIn(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
-    } catch (error) {
-      setAuthError(
-        error instanceof Error
-          ? 'เข้าสู่ระบบไม่สำเร็จ ตรวจสอบอีเมล/รหัสผ่านอีกครั้ง'
-          : 'เข้าสู่ระบบไม่สำเร็จ',
-      )
+      await signInWithPopup(auth, googleProvider)
+    } catch {
+      setAuthError('เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่')
     } finally {
       setSigningIn(false)
     }
@@ -92,8 +121,20 @@ export function AdminApp() {
   }
 
   if (!user) {
-    return <AdminLogin onSubmit={handleLogin} error={authError} submitting={signingIn} />
+    return <AdminLoginGate onSignIn={() => void handleGoogleSignIn()} error={authError} signingIn={signingIn} />
   }
 
-  return <AdminDashboard user={user} onLogout={handleLogout} />
+  if (isAdmin === null) {
+    return (
+      <div className="admin-shell admin-shell--center">
+        <p>กำลังตรวจสอบสิทธิ์แอดมิน…</p>
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return <AdminAccessDenied email={user.email ?? ''} onLogout={handleLogout} />
+  }
+
+  return <AdminShell user={user} onLogout={handleLogout} />
 }

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { User } from 'firebase/auth'
 import {
   createBooklet,
   deleteBooklet,
@@ -14,17 +13,12 @@ import {
 
 const MAX_FILE_SIZE = 250 * 1024 * 1024
 
-interface AdminDashboardProps {
-  user: User
-  onLogout: () => void
-}
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
+export function AdminManageBooklets() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [booklets, setBooklets] = useState<Booklet[]>([])
   const [loadingList, setLoadingList] = useState(true)
@@ -164,17 +158,7 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   }
 
   return (
-    <div className="admin-shell">
-      <header className="admin-topbar">
-        <h1>RIFFAI Admin</h1>
-        <div className="admin-topbar-actions">
-          <span className="admin-user-email">{user.email}</span>
-          <button type="button" className="admin-secondary-button" onClick={onLogout}>
-            ออกจากระบบ
-          </button>
-        </div>
-      </header>
-
+    <>
       <section className="admin-panel">
         <h2>เผยแพร่ booklet ใหม่</h2>
         <input
@@ -277,6 +261,6 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
       </section>
 
       {notice && <div className="admin-toast" role="status">{notice}</div>}
-    </div>
+    </>
   )
 }
