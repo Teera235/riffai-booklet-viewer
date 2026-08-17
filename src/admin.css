@@ -75,6 +75,27 @@
 .admin-topbar-actions { display: flex; align-items: center; gap: 12px; }
 .admin-user-email { color: #92928d; font-size: 13px; }
 
+.admin-tabs {
+  max-width: 860px;
+  margin: 0 auto 20px;
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.admin-tab {
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  color: #92928d;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.admin-tab.is-active { color: #f2f2ef; border-bottom-color: #f2f2ef; }
+.admin-tab:hover { color: #f2f2ef; }
+
+.admin-add-admin-form { display: grid; gap: 12px; max-width: 420px; }
+
 .admin-panel {
   max-width: 860px;
   margin: 0 auto 24px;

@@ -3,15 +3,20 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Booklet PDFs: anyone can read (public viewer links), only an
-    // authenticated admin can upload/delete. Cap uploads at 250MB and
+    function isAdmin() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.token.email.lower()));
+    }
+
+    // Booklet PDFs: anyone can read (public viewer links), only a
+    // whitelisted admin can upload/delete. Cap uploads at 250MB and
     // require the PDF content type to avoid arbitrary file hosting.
     match /booklets/{slug}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null
+      allow write: if isAdmin()
         && request.resource.size < 250 * 1024 * 1024
         && request.resource.contentType == 'application/pdf';
-      allow delete: if request.auth != null;
+      allow delete: if isAdmin();
     }
 
     // Deny everything else by default.
