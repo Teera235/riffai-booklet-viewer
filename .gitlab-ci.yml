@@ -1,0 +1,60 @@
+default:
+  image: node:22-bookworm-slim
+  interruptible: true
+
+stages:
+  - build
+  - deploy
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - .npm/
+
+build:
+  stage: build
+  script:
+    - npm ci --prefer-offline --no-audit
+    - npm run build
+  artifacts:
+    name: "riffai-booklet-viewer-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - docs/
+    expire_in: 7 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+deploy_production:
+  stage: deploy
+  needs:
+    - job: build
+      artifacts: true
+  environment:
+    name: production
+    url: "https://$FIREBASE_PROJECT_ID.web.app"
+    deployment_tier: production
+  resource_group: production
+  script:
+    - test -n "$FIREBASE_PROJECT_ID" || (echo "FIREBASE_PROJECT_ID is required" && exit 1)
+    - test -n "$FIREBASE_SERVICE_ACCOUNT_KEY" || (echo "FIREBASE_SERVICE_ACCOUNT_KEY is required" && exit 1)
+    - |
+      if [ -f "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
+        cp "$FIREBASE_SERVICE_ACCOUNT_KEY" "$CI_PROJECT_DIR/firebase-service-account.json"
+      else
+        printf '%s' "$FIREBASE_SERVICE_ACCOUNT_KEY" > "$CI_PROJECT_DIR/firebase-service-account.json"
+      fi
+    - chmod 600 "$CI_PROJECT_DIR/firebase-service-account.json"
+    - export GOOGLE_APPLICATION_CREDENTIALS="$CI_PROJECT_DIR/firebase-service-account.json"
+    - npx --yes firebase-tools@15.27.0 deploy --only hosting --project "$FIREBASE_PROJECT_ID" --non-interactive
+  after_script:
+    - rm -f "$CI_PROJECT_DIR/firebase-service-account.json"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+      allow_failure: false
