@@ -15,8 +15,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--dpi", type=int, default=144)
-    parser.add_argument("--quality", type=int, default=84)
+    parser.add_argument("--dpi", type=int, default=115)
+    parser.add_argument("--quality", type=int, default=70)
     args = parser.parse_args()
 
     if not args.source.is_file():
