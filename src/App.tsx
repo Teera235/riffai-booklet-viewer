@@ -7,7 +7,6 @@ import {
 } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 import logoLight from '../asset/LOGO_LIGHT_CLEAN.png'
-import defaultBookUrl from '../Booklet-web.pdf?url'
 import { Icon } from './components/Icon'
 import { PdfPage } from './components/PdfPage'
 import { PdfThumbnail } from './components/PdfThumbnail'
@@ -21,7 +20,6 @@ import {
 GlobalWorkerOptions.workerSrc = pdfWorker
 
 const MAX_FILE_SIZE = 250 * 1024 * 1024
-const DEFAULT_BOOK_ID = 'riffai-booklet'
 
 type ViewMode = 'single' | 'spread'
 type TurnDirection = 'next' | 'previous'
@@ -39,12 +37,12 @@ interface ViewerSize {
   height: number
 }
 
-const defaultBook: BookSource = {
-  id: DEFAULT_BOOK_ID,
-  name: 'RIFFAI Booklet',
-  url: defaultBookUrl,
-  local: false,
-  createdAt: 0,
+export interface AppProps {
+  /** The primary booklet to open (resolved from Firestore by the router, or a
+   * local fallback PDF when running without Firebase configured). */
+  primaryBook: BookSource
+  /** Base path used to build shareable links, e.g. "/b/riffai-booklet". */
+  sharePath: string
 }
 
 function initialPage(): number {
@@ -67,7 +65,7 @@ function normalizePage(page: number, mode: ViewMode, total: number): number {
   return safePage
 }
 
-export default function App() {
+export default function App({ primaryBook, sharePath }: AppProps) {
   const viewerRef = useRef<HTMLDivElement>(null)
   const bookStageRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -79,8 +77,8 @@ export default function App() {
     startY: number
     width: number
   } | null>(null)
-  const [books, setBooks] = useState<BookSource[]>([defaultBook])
-  const [activeBookId, setActiveBookId] = useState(DEFAULT_BOOK_ID)
+  const [books, setBooks] = useState<BookSource[]>([primaryBook])
+  const [activeBookId, setActiveBookId] = useState(primaryBook.id)
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadError, setLoadError] = useState('')
@@ -98,7 +96,7 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const [pageDrag, setPageDrag] = useState<{ edge: 'left' | 'right'; progress: number; releasing: boolean } | null>(null)
 
-  const activeBook = books.find((book) => book.id === activeBookId) ?? defaultBook
+  const activeBook = books.find((book) => book.id === activeBookId) ?? primaryBook
   const totalPages = pdfDocument?.numPages ?? 0
   const effectiveMode: ViewMode = isCompact ? 'single' : mode
   const visiblePages = useMemo(() => {
@@ -116,7 +114,7 @@ export default function App() {
   const pageMaxHeight = Math.max(280, viewerSize.height - 56)
 
   const shareUrl = useMemo(() => {
-    const url = new URL(window.location.href)
+    const url = new URL(sharePath, window.location.origin)
     url.search = ''
     url.hash = ''
     if (!activeBook.local) {
@@ -124,7 +122,7 @@ export default function App() {
       url.searchParams.set('mode', mode)
     }
     return url.toString()
-  }, [activeBook.local, currentPage, mode])
+  }, [activeBook.local, currentPage, mode, sharePath])
 
   useEffect(() => {
     const onResize = () => setIsCompact(window.innerWidth < 820)
@@ -153,7 +151,7 @@ export default function App() {
           objectUrlsRef.current.push(url)
           return { id: book.id, name: book.name, url, local: true, createdAt: book.createdAt }
         })
-        setBooks([defaultBook, ...localBooks])
+        setBooks([primaryBook, ...localBooks])
       })
       .catch(() => setNotice('เบราว์เซอร์นี้ไม่รองรับการเก็บ PDF แบบถาวร'))
 
@@ -168,7 +166,7 @@ export default function App() {
     setPdfDocument(null)
     setLoadError('')
     setLoadingProgress(0)
-    setCurrentPage(activeBook.id === DEFAULT_BOOK_ID ? initialPage() : 1)
+    setCurrentPage(activeBook.id === primaryBook.id ? initialPage() : 1)
     setZoom(1)
 
     const task = getDocument({ url: activeBook.url })
@@ -406,7 +404,7 @@ export default function App() {
       const url = URL.createObjectURL(file)
       objectUrlsRef.current.push(url)
       const source: BookSource = { id: book.id, name: book.name, url, local: true, createdAt: book.createdAt }
-      setBooks((current) => [current[0] ?? defaultBook, source, ...current.slice(1)])
+      setBooks((current) => [current[0] ?? primaryBook, source, ...current.slice(1)])
       setActiveBookId(book.id)
       setLibraryOpen(false)
       setNotice('เพิ่ม PDF ลงในคลังแล้ว')
@@ -423,7 +421,7 @@ export default function App() {
     URL.revokeObjectURL(book.url)
     objectUrlsRef.current = objectUrlsRef.current.filter((url) => url !== book.url)
     setBooks((current) => current.filter((item) => item.id !== book.id))
-    if (activeBookId === book.id) setActiveBookId(DEFAULT_BOOK_ID)
+    if (activeBookId === book.id) setActiveBookId(primaryBook.id)
     setNotice('ลบ PDF ออกจากเครื่องแล้ว')
   }
 

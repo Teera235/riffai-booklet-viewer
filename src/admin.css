@@ -1,0 +1,159 @@
+.admin-shell {
+  min-height: 100dvh;
+  padding: 32px 24px 80px;
+  background: #090909;
+  color: #f2f2ef;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.admin-shell--center {
+  display: grid;
+  place-items: center;
+}
+
+.admin-login-card {
+  width: min(100%, 360px);
+  padding: 32px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  background: #101010;
+  display: grid;
+  gap: 16px;
+}
+.admin-login-card h1 { margin: 0; font-size: 22px; font-weight: 600; }
+.admin-login-subtitle { margin: 0; color: #92928d; font-size: 13px; }
+
+.admin-field { display: grid; gap: 6px; font-size: 13px; color: #c9c9c4; }
+.admin-field input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 6px;
+  background: #050505;
+  color: #f2f2ef;
+  font-size: 14px;
+}
+.admin-field small { color: #6f6f6a; font-size: 11px; }
+
+.admin-primary-button {
+  height: 42px;
+  border: 1px solid #f2f2ef;
+  border-radius: 6px;
+  background: #f2f2ef;
+  color: #0a0a0a;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-primary-button:disabled { opacity: .5; cursor: default; }
+.admin-secondary-button {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 6px;
+  background: transparent;
+  color: #f2f2ef;
+  cursor: pointer;
+}
+.admin-danger-button {
+  border: 1px solid rgba(255,120,120,.4);
+  border-radius: 6px;
+  background: transparent;
+  color: #ff9c9c;
+  cursor: pointer;
+  padding: 6px 12px;
+}
+.admin-error { margin: 0; color: #ff9c9c; font-size: 13px; }
+.admin-progress { margin: 0; color: #c9c9c4; font-size: 13px; }
+
+.admin-topbar {
+  max-width: 860px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.admin-topbar h1 { margin: 0; font-size: 20px; }
+.admin-topbar-actions { display: flex; align-items: center; gap: 12px; }
+.admin-user-email { color: #92928d; font-size: 13px; }
+
+.admin-panel {
+  max-width: 860px;
+  margin: 0 auto 24px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  background: #101010;
+}
+.admin-panel h2 { margin: 0 0 14px; font-size: 16px; }
+
+.admin-publish-form { margin-top: 16px; display: grid; gap: 12px; max-width: 420px; }
+.admin-publish-actions { display: flex; gap: 10px; }
+
+.admin-booklet-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.admin-booklet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+}
+.admin-booklet-info { display: grid; gap: 2px; }
+.admin-booklet-info a { color: #9fd3ff; font-size: 12px; text-decoration: none; }
+.admin-booklet-info small { color: #6f6f6a; font-size: 11px; }
+.admin-booklet-actions { display: flex; gap: 8px; }
+.admin-booklet-actions button {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  background: transparent;
+  color: #f2f2ef;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.admin-rename-form { display: flex; align-items: center; gap: 8px; width: 100%; }
+.admin-rename-form input {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  background: #050505;
+  color: #f2f2ef;
+}
+.admin-rename-form button {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  background: transparent;
+  color: #f2f2ef;
+  cursor: pointer;
+}
+
+.admin-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  background: #151515;
+  color: #f2f2ef;
+  font-size: 13px;
+}
+
+.route-loading, .route-error {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  text-align: center;
+  background: #090909;
+  color: #f2f2ef;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.route-error a { color: #9fd3ff; }
