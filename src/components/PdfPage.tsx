@@ -15,6 +15,8 @@ interface PageSize {
   height: number
 }
 
+const RENDER_TIMEOUT_MS = 15000
+
 export function PdfPage({
   document,
   pageNumber,
@@ -27,9 +29,18 @@ export function PdfPage({
   const renderTaskRef = useRef<RenderTask | null>(null)
   const [size, setSize] = useState<PageSize>({ width: maxWidth, height: maxHeight })
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [retryToken, setRetryToken] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    let timedOut = false
+
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) return
+      timedOut = true
+      renderTaskRef.current?.cancel()
+      setStatus('error')
+    }, RENDER_TIMEOUT_MS)
 
     const render = async () => {
       setStatus('loading')
@@ -37,7 +48,7 @@ export function PdfPage({
 
       try {
         const page = await document.getPage(pageNumber)
-        if (cancelled) return
+        if (cancelled || timedOut) return
 
         const baseViewport = page.getViewport({ scale: 1 })
         const fitScale = Math.min(maxWidth / baseViewport.width, maxHeight / baseViewport.height)
@@ -47,7 +58,7 @@ export function PdfPage({
         const canvas = canvasRef.current
         const context = canvas?.getContext('2d', { alpha: false })
 
-        if (!canvas || !context || cancelled) return
+        if (!canvas || !context || cancelled || timedOut) return
 
         const cssWidth = viewport.width / outputScale
         const cssHeight = viewport.height / outputScale
@@ -60,9 +71,13 @@ export function PdfPage({
         const renderTask = page.render({ canvas, canvasContext: context, viewport })
         renderTaskRef.current = renderTask
         await renderTask.promise
-        if (!cancelled) setStatus('ready')
+        if (!cancelled && !timedOut) {
+          window.clearTimeout(timeoutId)
+          setStatus('ready')
+        }
       } catch (error) {
-        if (!cancelled && !(error instanceof Error && error.name === 'RenderingCancelledException')) {
+        if (!cancelled && !timedOut && !(error instanceof Error && error.name === 'RenderingCancelledException')) {
+          window.clearTimeout(timeoutId)
           setStatus('error')
         }
       }
@@ -71,9 +86,10 @@ export function PdfPage({
     void render()
     return () => {
       cancelled = true
+      window.clearTimeout(timeoutId)
       renderTaskRef.current?.cancel()
     }
-  }, [document, maxHeight, maxWidth, pageNumber, thumbnail, zoom])
+  }, [document, maxHeight, maxWidth, pageNumber, thumbnail, zoom, retryToken])
 
   return (
     <div
@@ -83,7 +99,16 @@ export function PdfPage({
     >
       <canvas ref={canvasRef} />
       {status === 'loading' && <div className="page-skeleton" aria-hidden="true" />}
-      {status === 'error' && <div className="page-error">ไม่สามารถแสดงหน้านี้ได้</div>}
+      {status === 'error' && (
+        <div className="page-error">
+          <p>ไม่สามารถแสดงหน้านี้ได้</p>
+          {!thumbnail && (
+            <button type="button" className="page-error-retry" onClick={() => setRetryToken((token) => token + 1)}>
+              ลองใหม่
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

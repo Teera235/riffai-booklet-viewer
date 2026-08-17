@@ -175,15 +175,25 @@ export default function App() {
     task.onProgress = ({ loaded, total }: { loaded: number; total: number }) => {
       if (!cancelled && total > 0) setLoadingProgress(Math.min(100, Math.round((loaded / total) * 100)))
     }
+
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) return
+      cancelled = true
+      void task.destroy()
+      setLoadError('เปิดเอกสารไม่สำเร็จ (หมดเวลาเชื่อมต่อ กรุณาลองใหม่)')
+    }, 25000)
+
     void task.promise
       .then((loadedDocument) => {
         if (cancelled) return
+        window.clearTimeout(timeoutId)
         setPdfDocument(loadedDocument)
         setCurrentPage((page) => Math.min(page, loadedDocument.numPages))
         setLoadingProgress(100)
       })
       .catch((error: unknown) => {
         if (cancelled) return
+        window.clearTimeout(timeoutId)
         console.error('PDF loading failed', error)
         const detail = error instanceof Error ? error.message : 'Unknown PDF loading error'
         setLoadError(`เปิดเอกสารไม่สำเร็จ (${detail})`)
@@ -191,6 +201,7 @@ export default function App() {
 
     return () => {
       cancelled = true
+      window.clearTimeout(timeoutId)
       void task.destroy()
     }
   }, [activeBook.id, activeBook.url])
