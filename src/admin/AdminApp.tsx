@@ -32,9 +32,29 @@ export function AdminApp() {
 
   useEffect(() => {
     if (!isFirebaseConfigured) return
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser)
-      setAuthReady(true)
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      if (!nextUser) {
+        setUser(null)
+        setAuthReady(true)
+        return
+      }
+
+      setAuthReady(false)
+      try {
+        const token = await nextUser.getIdTokenResult(true)
+        if (token.claims.admin !== true) {
+          setUser(null)
+          setAuthError('บัญชีนี้ไม่มีสิทธิ์ผู้ดูแลระบบ')
+          await signOut(auth)
+          return
+        }
+        setUser(nextUser)
+      } catch {
+        setUser(null)
+        setAuthError('ไม่สามารถตรวจสอบสิทธิ์ผู้ดูแลระบบได้')
+      } finally {
+        setAuthReady(true)
+      }
     })
     return unsubscribe
   }, [])
