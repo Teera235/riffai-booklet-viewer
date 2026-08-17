@@ -6,7 +6,7 @@ import {
   type PDFDocumentProxy,
 } from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import logoLight from '../asset/LOGO_LIGHT_PNG.png'
+import logoLight from '../asset/LOGO_LIGHT_CLEAN.png'
 import defaultBookUrl from '../Booklet-web.pdf?url'
 import { Icon } from './components/Icon'
 import { PdfPage } from './components/PdfPage'

@@ -71,7 +71,7 @@ export function Icon({ name, size = 20, ...props }: IconProps) {
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth="1.8"
+      strokeWidth="1.35"
       {...props}
     >
       {paths}
