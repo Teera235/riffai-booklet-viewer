@@ -80,7 +80,7 @@ deploy_production:
       }
       EOF
     - export GOOGLE_APPLICATION_CREDENTIALS="$CI_PROJECT_DIR/.google-wif-credentials.json"
-    - npx firebase deploy --only hosting,firestore:rules,storage --project "$FIREBASE_PROJECT_ID" --non-interactive
+    - npx --yes firebase-tools@15.27.0 deploy --only hosting,firestore:rules,storage --project "$FIREBASE_PROJECT_ID" --non-interactive
   after_script:
     - rm -f "$CI_PROJECT_DIR/.gitlab-oidc-token" "$CI_PROJECT_DIR/.google-wif-credentials.json"
   rules:
