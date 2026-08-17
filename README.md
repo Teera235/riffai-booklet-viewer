@@ -17,14 +17,16 @@ Configure these GitLab CI/CD variables before the first production deployment:
 - `FIREBASE_SERVICE_ACCOUNT_KEY`: service-account JSON, preferably a GitLab
   **File** variable. Mark it **Masked** and **Protected**. A regular JSON variable
   is also supported.
+- All `VITE_FIREBASE_*` values listed in `.env.example`: Firebase web-app
+  configuration embedded in the production build.
 
 The service account needs only the permissions required to deploy Firebase
 Hosting. Protect the `production` environment in GitLab so only approved
 operators can start the manual deploy job.
 
-The pipeline deploys Hosting only. Provision Firebase Authentication,
-Firestore, and Cloud Storage separately, and review their access rules before
-enabling the planned admin upload functionality.
+The pipeline deploys Hosting plus the reviewed Firestore and Cloud Storage
+Security Rules. Admin writes require a Firebase Authentication user with the
+custom claim `admin=true`; merely signing in does not grant write access.
 
 Rollback is performed from **Firebase Console → Hosting → Release history** by
 selecting the previous known-good release; rebuilding the application is not
