@@ -76,6 +76,18 @@ gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
 
 gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
   --member "serviceAccount:${DEPLOYER_EMAIL}" \
+  --role roles/firebasestorage.viewer
+
+gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
+  --member "serviceAccount:${DEPLOYER_EMAIL}" \
+  --role roles/storage.bucketViewer
+
+gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
+  --member "serviceAccount:${DEPLOYER_EMAIL}" \
+  --role roles/serviceusage.apiKeysViewer
+
+gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
+  --member "serviceAccount:${DEPLOYER_EMAIL}" \
   --role roles/serviceusage.serviceUsageConsumer
 ```
 
