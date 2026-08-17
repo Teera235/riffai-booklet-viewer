@@ -69,9 +69,16 @@ function normalizePage(page: number, mode: ViewMode, total: number): number {
 
 export default function App() {
   const viewerRef = useRef<HTMLDivElement>(null)
+  const bookStageRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const objectUrlsRef = useRef<string[]>([])
-  const touchStartRef = useRef<number | null>(null)
+  const dragRef = useRef<{
+    pointerId: number
+    edge: 'left' | 'right'
+    startX: number
+    startY: number
+    width: number
+  } | null>(null)
   const [books, setBooks] = useState<BookSource[]>([defaultBook])
   const [activeBookId, setActiveBookId] = useState(DEFAULT_BOOK_ID)
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null)
@@ -89,6 +96,7 @@ export default function App() {
   const [qrCode, setQrCode] = useState('')
   const [copied, setCopied] = useState(false)
   const [notice, setNotice] = useState('')
+  const [pageDrag, setPageDrag] = useState<{ edge: 'left' | 'right'; progress: number; releasing: boolean } | null>(null)
 
   const activeBook = books.find((book) => book.id === activeBookId) ?? defaultBook
   const totalPages = pdfDocument?.numPages ?? 0
@@ -233,6 +241,105 @@ export default function App() {
     goToPage(target, 'next')
   }, [canGoNext, currentPage, effectiveMode, goToPage])
 
+  const applyDragTransform = useCallback((edge: 'left' | 'right', progress: number) => {
+    const stage = bookStageRef.current
+    if (!stage) return
+    const angle = progress * 105
+    const rotation = edge === 'right' ? -angle : angle
+    const originSide = edge === 'right' ? 'left' : 'right'
+    const lift = Math.sin(Math.min(1, progress) * Math.PI) * 14
+    stage.style.setProperty('--drag-progress', String(progress))
+    stage.style.setProperty('--drag-rotate', `${rotation}deg`)
+    stage.style.setProperty('--drag-origin', originSide === 'left' ? '0% 50%' : '100% 50%')
+    stage.style.setProperty('--drag-lift', `${lift}px`)
+    stage.style.setProperty('--drag-shadow-opacity', String(Math.min(0.55, progress * 0.6)))
+  }, [])
+
+  const clearDragTransform = useCallback(() => {
+    const stage = bookStageRef.current
+    if (!stage) return
+    stage.style.removeProperty('--drag-progress')
+    stage.style.removeProperty('--drag-rotate')
+    stage.style.removeProperty('--drag-origin')
+    stage.style.removeProperty('--drag-lift')
+    stage.style.removeProperty('--drag-shadow-opacity')
+  }, [])
+
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    if (!totalPages) return
+    const viewer = viewerRef.current
+    if (!viewer) return
+    const rect = viewer.getBoundingClientRect()
+    const relativeX = event.clientX - rect.left
+    const edge: 'left' | 'right' = relativeX > rect.width / 2 ? 'right' : 'left'
+    if (edge === 'right' && !canGoNext) return
+    if (edge === 'left' && !canGoPrevious) return
+
+    dragRef.current = {
+      pointerId: event.pointerId,
+      edge,
+      startX: event.clientX,
+      startY: event.clientY,
+      width: rect.width,
+    }
+    setPageDrag({ edge, progress: 0, releasing: false })
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }, [canGoNext, canGoPrevious, totalPages])
+
+  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const deltaX = event.clientX - drag.startX
+    const deltaY = event.clientY - drag.startY
+    if (Math.abs(deltaY) > Math.abs(deltaX) * 1.4) return
+    const travel = drag.edge === 'right' ? Math.max(0, -deltaX) : Math.max(0, deltaX)
+    const progress = Math.min(1, travel / Math.max(160, drag.width * 0.62))
+    applyDragTransform(drag.edge, progress)
+    setPageDrag({ edge: drag.edge, progress, releasing: false })
+  }, [applyDragTransform])
+
+  const settleDrag = useCallback((edge: 'left' | 'right', progress: number) => {
+    const shouldComplete = progress >= 0.5
+    setPageDrag({ edge, progress, releasing: true })
+
+    if (shouldComplete) {
+      applyDragTransform(edge, 1)
+      window.setTimeout(() => {
+        if (edge === 'right') goNext()
+        else goPrevious()
+        clearDragTransform()
+        setPageDrag(null)
+      }, 190)
+    } else {
+      applyDragTransform(edge, 0)
+      window.setTimeout(() => {
+        clearDragTransform()
+        setPageDrag(null)
+      }, 240)
+    }
+  }, [applyDragTransform, clearDragTransform, goNext, goPrevious])
+
+  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    setPageDrag((current) => {
+      const progress = current?.edge === drag.edge ? current.progress : 0
+      settleDrag(drag.edge, progress)
+      return current
+    })
+  }, [settleDrag])
+
+  const handlePointerCancel = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
+    clearDragTransform()
+    setPageDrag(null)
+  }, [clearDragTransform])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target
@@ -332,20 +439,6 @@ export default function App() {
     else await document.documentElement.requestFullscreen()
   }
 
-  const handleTouchStart = (event: React.TouchEvent) => {
-    touchStartRef.current = event.touches[0]?.clientX ?? null
-  }
-
-  const handleTouchEnd = (event: React.TouchEvent) => {
-    if (touchStartRef.current === null) return
-    const end = event.changedTouches[0]?.clientX ?? touchStartRef.current
-    const distance = end - touchStartRef.current
-    touchStartRef.current = null
-    if (Math.abs(distance) < 55) return
-    if (distance < 0) goNext()
-    else goPrevious()
-  }
-
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -388,8 +481,10 @@ export default function App() {
         <div
           className="viewer"
           ref={viewerRef}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
         >
           <div className="ambient-glow" aria-hidden="true" />
           {!pdfDocument && !loadError && (
@@ -409,7 +504,8 @@ export default function App() {
           {pdfDocument && (
             <div
               key={`${currentPage}-${effectiveMode}-${direction}`}
-              className={`book-stage mode-${effectiveMode} turn-${direction}`}
+              ref={bookStageRef}
+              className={`book-stage mode-${effectiveMode} turn-${direction} ${pageDrag ? `is-dragging drag-${pageDrag.edge} ${pageDrag.releasing ? 'is-releasing' : ''}` : ''}`}
               aria-live="polite"
             >
               {visiblePages.map((page, index) => (
@@ -424,6 +520,7 @@ export default function App() {
                 </div>
               ))}
               {effectiveMode === 'spread' && visiblePages.length === 2 && <span className="book-spine" aria-hidden="true" />}
+              {pageDrag && <span className="page-fold-shadow" aria-hidden="true" />}
             </div>
           )}
           <button className="edge-nav edge-nav--left" type="button" onClick={goPrevious} disabled={!canGoPrevious} aria-label="หน้าก่อนหน้า"><Icon name="chevron-left" size={26} /></button>
