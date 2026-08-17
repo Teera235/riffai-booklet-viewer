@@ -4,6 +4,10 @@ Request: `OPS-20260817-8E21`
 
 Environment: `production`
 
+Provisioned project: `riffai-booklet-prod`
+
+Data location: `asia-southeast1` (Singapore)
+
 ## 1. Select the Google Cloud project
 
 Firebase is enabled on a Google Cloud project. Use an existing project only
@@ -11,7 +15,8 @@ when its owner, billing account, data boundary, lifecycle, and production
 purpose match this application. Do not reuse an unrelated project merely
 because it is available.
 
-Record the approved project ID as `FIREBASE_PROJECT_ID`. Before changing it,
+The approved project ID is `riffai-booklet-prod`; use the same value for
+`FIREBASE_PROJECT_ID`. Before changing it,
 verify the active account and project:
 
 ```sh
@@ -107,7 +112,9 @@ itself is also a blocking manual action.
 ## 5. Provision the first administrator
 
 Create the operator as a Firebase Authentication user using the approved
-corporate email address. From a trusted administrative environment, use the
+corporate email address. No initial password is stored in this repository or
+the Ops request; the operator must set it through the approved secure handoff.
+From a trusted administrative environment, use the
 Firebase Admin SDK to set the user's custom claim to `{ "admin": true }`.
 Record the approver, target UID, and timestamp. Do not make all authenticated
 users administrators.
