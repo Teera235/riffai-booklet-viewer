@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
+    outDir: 'docs',
+    emptyOutDir: true,
     target: 'es2022',
     assetsInlineLimit: 4096,
   },
