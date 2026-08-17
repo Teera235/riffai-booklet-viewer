@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 import { getStorage, type FirebaseStorage } from 'firebase/storage'
 import { getAuth, type Auth } from 'firebase/auth'
+import { getFunctions, type Functions } from 'firebase/functions'
 
 // Firebase config values are safe to expose client-side (they identify the
 // project, not grant access — actual access control is enforced by
@@ -26,12 +27,14 @@ let firebaseApp: FirebaseApp | null = null
 let dbInstance: Firestore | null = null
 let storageInstance: FirebaseStorage | null = null
 let authInstance: Auth | null = null
+let functionsInstance: Functions | null = null
 
 if (isFirebaseConfigured) {
   firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig)
   dbInstance = getFirestore(firebaseApp)
   storageInstance = getStorage(firebaseApp)
   authInstance = getAuth(firebaseApp)
+  functionsInstance = getFunctions(firebaseApp)
 }
 
 export { firebaseApp }
@@ -61,5 +64,11 @@ export const storage = new Proxy({} as FirebaseStorage, {
 export const auth = new Proxy({} as Auth, {
   get(_target, prop) {
     return (requireConfigured(authInstance, 'Auth') as unknown as Record<string | symbol, unknown>)[prop]
+  },
+})
+
+export const functions = new Proxy({} as Functions, {
+  get(_target, prop) {
+    return (requireConfigured(functionsInstance, 'Functions') as unknown as Record<string | symbol, unknown>)[prop]
   },
 })

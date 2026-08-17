@@ -4,13 +4,13 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     function isAdmin() {
-      return request.auth != null
-        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.token.email.lower()));
+      return request.auth != null && request.auth.token.admin == true;
     }
 
-    // Booklet PDFs: anyone can read (public viewer links), only a
-    // whitelisted admin can upload/delete. Cap uploads at 250MB and
-    // require the PDF content type to avoid arbitrary file hosting.
+    // Booklet PDFs: anyone can read (public viewer links), only an admin
+    // (Firebase Auth custom claim `admin: true`) can upload/delete. Cap
+    // uploads at 250MB and require the PDF content type to avoid
+    // arbitrary file hosting.
     match /booklets/{slug}/{fileName} {
       allow read: if true;
       allow write: if isAdmin()

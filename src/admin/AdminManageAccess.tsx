@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { User } from 'firebase/auth'
-import { addAdmin, listAdmins, removeAdmin, type AdminEntry } from '../lib/admins'
+import { addAdmin, listAdmins, removeAdmin, type AdminEntry } from '../lib/adminFunctions'
 
 interface AdminManageAccessProps {
   currentUser: User
@@ -49,7 +49,7 @@ export function AdminManageAccess({ currentUser }: AdminManageAccessProps) {
     setAddError('')
     setAdding(true)
     try {
-      await addAdmin(trimmed, currentUser.email ?? 'unknown')
+      await addAdmin(trimmed)
       setEmailInput('')
       setNotice('เพิ่ม admin แล้ว')
       await refreshList()

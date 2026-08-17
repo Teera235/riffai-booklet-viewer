@@ -123,15 +123,56 @@ itself is also a blocking manual action.
 
 ## 5. Provision the first administrator
 
-Seed a Firestore document at `admins/{lowercase-corporate-email}` from a
-trusted administrative environment. The document ID is the approved Google
-account email in lowercase; the contents may record the approver and creation
-timestamp. The first record must be seeded administratively because the rules
-allow only an existing administrator to manage this collection.
+Authorization for the admin panel is enforced by the Firebase Authentication
+custom claim `admin: true`, not by a Firestore document. Firestore/Storage
+Security Rules check `request.auth.token.admin == true`; a signed-in Google
+account with no such claim is denied, regardless of any Firestore record.
 
-Firestore and Storage rules deny writes and deletes unless the signed-in
-Google account has a matching document. Do not whitelist consumer accounts or
-all authenticated users.
+The `addAdminClaim` and `removeAdminClaim` Cloud Functions (deployed from
+`functions/`) grant and revoke this claim, but both require the caller to
+already hold `admin: true` — there is no admin yet to authorize the first
+one through them. Seed the first admin from a trusted administrative
+environment with the Firebase Admin SDK or `gcloud` identity that has
+`roles/firebaseauth.admin` (or broader) on the project:
+
+```sh
+# The target user must have signed in with Google at least once already,
+# so a Firebase Auth user record exists to attach the claim to.
+node -e "
+  const { initializeApp } = require('firebase-admin/app');
+  const { getAuth } = require('firebase-admin/auth');
+  initializeApp();
+  getAuth().getUserByEmail('APPROVED_ADMIN_EMAIL')
+    .then((user) => getAuth().setCustomUserClaims(user.uid, { admin: true }))
+    .then(() => console.log('done'));
+"
+```
+
+Run this once, from a machine authenticated as an account with the
+Firebase Admin SDK default credentials for `riffai-booklet-prod` (for
+example via `gcloud auth application-default login` with an account that
+has `roles/firebaseauth.admin`). Do not grant this claim to consumer
+accounts or all authenticated users.
+
+After the first admin is seeded, every subsequent admin can be added or
+removed directly from the admin panel (**Admin → จัดการ Admin**), which
+calls `addAdminClaim`/`removeAdminClaim` — no further manual Admin SDK
+access is needed unless the last remaining admin is locked out.
+
+The Firestore `admins` collection is only a read-only mirror (written
+exclusively by the two Cloud Functions) used to list current admins in the
+panel UI; it does not grant any access on its own.
+
+**Pipeline gap:** `deploy_production` currently runs
+`firebase deploy --only hosting,firestore:rules,storage`, which does not
+include `functions`. The `addAdminClaim`/`removeAdminClaim` Cloud Functions
+in `functions/` must be added to that `--only` list (or deployed once
+manually with `npx firebase-tools@15.27.0 deploy --only functions --project
+riffai-booklet-prod`) before the admin panel's "จัดการ Admin" tab will work
+in production. The CI deployer service account also needs
+`roles/cloudfunctions.developer` (or equivalent) added alongside the roles
+already granted in Section 3, since Cloud Functions deployment is a
+separate IAM surface from Hosting/Firestore/Storage.
 
 ## 6. Deploy and verify
 

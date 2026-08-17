@@ -6,5 +6,7 @@ dist/
 .firebase/
 firebase-service-account.json
 *-debug.log
+functions/lib/
+*.tsbuildinfo
 Booklet.pdf
 asset/LOGO_DARK_PNG.png

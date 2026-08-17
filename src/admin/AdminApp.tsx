@@ -7,7 +7,6 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth, isFirebaseConfigured } from '../lib/firebase'
-import { isAdminEmail } from '../lib/admins'
 import { AdminShell } from './AdminShell'
 import '../admin.css'
 
@@ -33,7 +32,7 @@ function AdminAccessDenied({ email, onLogout }: { email: string; onLogout: () =>
       <div className="admin-login-card">
         <h1>ไม่มีสิทธิ์เข้าถึง</h1>
         <p className="admin-login-subtitle">
-          บัญชี {email} ไม่ได้อยู่ในรายชื่อ admin กรุณาติดต่อผู้ดูแลระบบให้เพิ่มบัญชีนี้
+          บัญชี {email} ไม่มีสิทธิ์ผู้ดูแลระบบ กรุณาติดต่อ admin คนอื่นให้เพิ่มบัญชีนี้
         </p>
         <button type="button" className="admin-secondary-button" onClick={onLogout}>
           ออกจากระบบ
@@ -61,36 +60,45 @@ function AdminLoginGate({ onSignIn, error, signingIn }: { onSignIn: () => void; 
 export function AdminApp() {
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [authError, setAuthError] = useState('')
+  const [deniedEmail, setDeniedEmail] = useState('')
   const [signingIn, setSigningIn] = useState(false)
 
   useEffect(() => {
     if (!isFirebaseConfigured) return
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser)
-      setAuthReady(true)
+    // Authorization is driven entirely by the Firebase Auth custom claim
+    // `admin: true` (granted only through the addAdminClaim Cloud
+    // Function) — not by any Firestore lookup. `getIdTokenResult(true)`
+    // forces a token refresh so a claim granted moments ago (in another
+    // tab, or by another admin) is picked up without requiring the user
+    // to sign out and back in.
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      if (!nextUser) {
+        setUser(null)
+        setAuthReady(true)
+        return
+      }
+
+      setAuthReady(false)
+      try {
+        const token = await nextUser.getIdTokenResult(true)
+        if (token.claims.admin !== true) {
+          setDeniedEmail(nextUser.email ?? '')
+          await signOut(auth)
+          setUser(null)
+          return
+        }
+        setDeniedEmail('')
+        setUser(nextUser)
+      } catch {
+        setAuthError('ไม่สามารถตรวจสอบสิทธิ์ผู้ดูแลระบบได้ กรุณาลองใหม่')
+        setUser(null)
+      } finally {
+        setAuthReady(true)
+      }
     })
     return unsubscribe
   }, [])
-
-  useEffect(() => {
-    if (!user?.email) {
-      setIsAdmin(null)
-      return
-    }
-    let cancelled = false
-    void isAdminEmail(user.email)
-      .then((result) => {
-        if (!cancelled) setIsAdmin(result)
-      })
-      .catch(() => {
-        if (!cancelled) setIsAdmin(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [user?.email])
 
   if (!isFirebaseConfigured) {
     return <AdminSetupNotice />
@@ -98,6 +106,7 @@ export function AdminApp() {
 
   const handleGoogleSignIn = async () => {
     setAuthError('')
+    setDeniedEmail('')
     setSigningIn(true)
     try {
       await signInWithPopup(auth, googleProvider)
@@ -120,20 +129,12 @@ export function AdminApp() {
     )
   }
 
+  if (deniedEmail) {
+    return <AdminAccessDenied email={deniedEmail} onLogout={() => setDeniedEmail('')} />
+  }
+
   if (!user) {
     return <AdminLoginGate onSignIn={() => void handleGoogleSignIn()} error={authError} signingIn={signingIn} />
-  }
-
-  if (isAdmin === null) {
-    return (
-      <div className="admin-shell admin-shell--center">
-        <p>กำลังตรวจสอบสิทธิ์แอดมิน…</p>
-      </div>
-    )
-  }
-
-  if (!isAdmin) {
-    return <AdminAccessDenied email={user.email ?? ''} onLogout={handleLogout} />
   }
 
   return <AdminShell user={user} onLogout={handleLogout} />
