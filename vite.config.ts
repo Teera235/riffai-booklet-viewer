@@ -7,7 +7,7 @@ export default defineConfig({
   build: {
     outDir: 'docs',
     emptyOutDir: true,
-    target: 'es2022',
+    target: ['es2018', 'safari14', 'ios14', 'chrome87', 'firefox78'],
     assetsInlineLimit: 4096,
   },
 })

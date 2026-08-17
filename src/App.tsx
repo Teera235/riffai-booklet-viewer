@@ -4,8 +4,8 @@ import {
   GlobalWorkerOptions,
   getDocument,
   type PDFDocumentProxy,
-} from 'pdfjs-dist'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+} from 'pdfjs-dist/legacy/build/pdf.mjs'
+import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 import logoLight from '../asset/LOGO_LIGHT_CLEAN.png'
 import defaultBookUrl from '../Booklet-web.pdf?url'
 import { Icon } from './components/Icon'

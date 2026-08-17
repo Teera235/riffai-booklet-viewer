@@ -10,7 +10,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "pdfjs-dist": "6.2.108",
+    "pdfjs-dist": "^6.2.108",
     "qrcode": "1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
