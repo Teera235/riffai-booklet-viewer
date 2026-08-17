@@ -18,6 +18,7 @@ import {
   deleteObject,
   type UploadTaskSnapshot,
 } from 'firebase/storage'
+import { FirebaseError } from 'firebase/app'
 import { db, storage } from './firebase'
 
 const BOOKLETS_COLLECTION = 'booklets'
@@ -117,13 +118,19 @@ export async function renameBooklet(slug: string, name: string): Promise<void> {
   await updateDoc(doc(db, BOOKLETS_COLLECTION, slug), { name, updatedAt: serverTimestamp() })
 }
 
-export async function deleteBooklet(booklet: Booklet): Promise<void> {
-  await deleteDoc(doc(db, BOOKLETS_COLLECTION, booklet.id))
+export async function deleteBookletPdf(pdfPath: string): Promise<void> {
   try {
-    await deleteObject(ref(storage, booklet.pdfPath))
+    await deleteObject(ref(storage, pdfPath))
   } catch (error) {
-    // The Firestore record is already gone; a missing/mismatched storage
-    // object shouldn't block the admin from completing the deletion.
-    console.warn('Failed to delete storage object', error)
+    if (!(error instanceof FirebaseError) || error.code !== 'storage/object-not-found') {
+      throw error
+    }
   }
+}
+
+export async function deleteBooklet(booklet: Booklet): Promise<void> {
+  // Remove the public object before its metadata. If object deletion fails,
+  // keep the record so an operator can retry without losing the object path.
+  await deleteBookletPdf(booklet.pdfPath)
+  await deleteDoc(doc(db, BOOKLETS_COLLECTION, booklet.id))
 }

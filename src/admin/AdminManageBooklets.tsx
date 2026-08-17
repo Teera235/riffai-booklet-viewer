@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   createBooklet,
   deleteBooklet,
+  deleteBookletPdf,
   listBooklets,
   renameBooklet,
   slugExists,
@@ -92,7 +93,14 @@ export function AdminManageBooklets() {
       setUploadProgress(0)
       const { promise } = uploadBookletPdf(slug, pendingFile, setUploadProgress)
       const { pdfPath, pdfUrl } = await promise
-      await createBooklet({ slug, name: trimmedName }, pdfPath, pdfUrl, pendingFile.size, null)
+      try {
+        await createBooklet({ slug, name: trimmedName }, pdfPath, pdfUrl, pendingFile.size, null)
+      } catch (error) {
+        // Avoid leaving a publicly readable orphan when metadata creation
+        // fails after Storage has accepted the PDF.
+        await deleteBookletPdf(pdfPath).catch(() => undefined)
+        throw error
+      }
       setNotice('เผยแพร่ booklet สำเร็จแล้ว')
       setPendingFile(null)
       setNameInput('')
