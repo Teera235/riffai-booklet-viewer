@@ -76,7 +76,9 @@ export default function App({ primaryBook, sharePath }: AppProps) {
     startX: number
     startY: number
     width: number
+    tilt: number
   } | null>(null)
+  const turnAnimationRef = useRef<number | null>(null)
   const [books, setBooks] = useState<BookSource[]>([primaryBook])
   const [activeBookId, setActiveBookId] = useState(primaryBook.id)
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null)
@@ -128,6 +130,12 @@ export default function App({ primaryBook, sharePath }: AppProps) {
     const onResize = () => setIsCompact(window.innerWidth < 820)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (turnAnimationRef.current !== null) cancelAnimationFrame(turnAnimationRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -232,35 +240,24 @@ export default function App({ primaryBook, sharePath }: AppProps) {
     return () => window.clearTimeout(timeout)
   }, [notice])
 
-  const goToPage = useCallback((page: number, turnDirection: TurnDirection) => {
-    if (!totalPages) return
-    setDirection(turnDirection)
-    setCurrentPage(normalizePage(page, effectiveMode, totalPages))
-  }, [effectiveMode, totalPages])
-
-  const goPrevious = useCallback(() => {
-    if (!canGoPrevious) return
-    const target = effectiveMode === 'spread' && currentPage > 2 ? currentPage - 2 : currentPage - 1
-    goToPage(target, 'previous')
-  }, [canGoPrevious, currentPage, effectiveMode, goToPage])
-
-  const goNext = useCallback(() => {
-    if (!canGoNext) return
-    const target = effectiveMode === 'spread' ? (currentPage === 1 ? 2 : currentPage + 2) : currentPage + 1
-    goToPage(target, 'next')
-  }, [canGoNext, currentPage, effectiveMode, goToPage])
-
-  const applyDragTransform = useCallback((edge: 'left' | 'right', progress: number) => {
+  const applyDragTransform = useCallback((edge: 'left' | 'right', progress: number, tilt = 0) => {
     const stage = bookStageRef.current
     if (!stage) return
-    const angle = progress * 105
+    const angle = progress * 150
     const rotation = edge === 'right' ? -angle : angle
+    // The page must hinge at the spine (the edge opposite to the one being
+    // dragged), not at the edge under the pointer — dragging the right edge
+    // folds the page over the spine on its left, and vice versa.
     const originSide = edge === 'right' ? 'left' : 'right'
-    const lift = Math.sin(Math.min(1, progress) * Math.PI) * 14
+    // Corner-grab affordance: skew the hinge line itself based on where the
+    // pointer grabbed the page vertically (tilt in [-1, 1], 0 = middle).
+    // This makes the top/bottom corner lead the turn instead of a perfectly
+    // flat rotation, which is what makes a real page corner-lift readable.
+    const skew = tilt * progress * 10
     stage.style.setProperty('--drag-progress', String(progress))
     stage.style.setProperty('--drag-rotate', `${rotation}deg`)
     stage.style.setProperty('--drag-origin', originSide === 'left' ? '0% 50%' : '100% 50%')
-    stage.style.setProperty('--drag-lift', `${lift}px`)
+    stage.style.setProperty('--drag-skew', `${skew}deg`)
     stage.style.setProperty('--drag-shadow-opacity', String(Math.min(0.55, progress * 0.6)))
   }, [])
 
@@ -270,9 +267,60 @@ export default function App({ primaryBook, sharePath }: AppProps) {
     stage.style.removeProperty('--drag-progress')
     stage.style.removeProperty('--drag-rotate')
     stage.style.removeProperty('--drag-origin')
-    stage.style.removeProperty('--drag-lift')
+    stage.style.removeProperty('--drag-skew')
     stage.style.removeProperty('--drag-shadow-opacity')
   }, [])
+
+  /** Drives the exact same visual (rotateY hinged at the spine + shadow) for
+   * button/keyboard-triggered turns as for a finger/mouse drag: animate
+   * progress 0 -> 1 with requestAnimationFrame using an ease-out curve, then
+   * flip the underlying page once the turned page has rotated out of view.
+   * This keeps a single physics engine driving both interaction paths. */
+  const animatePageTurn = useCallback((edge: 'left' | 'right', onComplete: () => void) => {
+    if (turnAnimationRef.current !== null) {
+      cancelAnimationFrame(turnAnimationRef.current)
+      turnAnimationRef.current = null
+    }
+    setPageDrag({ edge, progress: 0, releasing: false })
+    const duration = 420
+    const start = performance.now()
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+
+    const step = (now: number) => {
+      const elapsed = now - start
+      const t = Math.min(1, elapsed / duration)
+      const progress = easeOutCubic(t)
+      applyDragTransform(edge, progress, 0)
+      setPageDrag({ edge, progress, releasing: false })
+      if (t < 1) {
+        turnAnimationRef.current = requestAnimationFrame(step)
+      } else {
+        turnAnimationRef.current = null
+        onComplete()
+        clearDragTransform()
+        setPageDrag(null)
+      }
+    }
+    turnAnimationRef.current = requestAnimationFrame(step)
+  }, [applyDragTransform, clearDragTransform])
+
+  const goToPage = useCallback((page: number, turnDirection: TurnDirection) => {
+    if (!totalPages) return
+    setDirection(turnDirection)
+    setCurrentPage(normalizePage(page, effectiveMode, totalPages))
+  }, [effectiveMode, totalPages])
+
+  const goPrevious = useCallback(() => {
+    if (!canGoPrevious) return
+    const target = effectiveMode === 'spread' && currentPage > 2 ? currentPage - 2 : currentPage - 1
+    animatePageTurn('left', () => goToPage(target, 'previous'))
+  }, [animatePageTurn, canGoPrevious, currentPage, effectiveMode, goToPage])
+
+  const goNext = useCallback(() => {
+    if (!canGoNext) return
+    const target = effectiveMode === 'spread' ? (currentPage === 1 ? 2 : currentPage + 2) : currentPage + 1
+    animatePageTurn('right', () => goToPage(target, 'next'))
+  }, [animatePageTurn, canGoNext, currentPage, effectiveMode, goToPage])
 
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return
@@ -285,12 +333,18 @@ export default function App({ primaryBook, sharePath }: AppProps) {
     if (edge === 'right' && !canGoNext) return
     if (edge === 'left' && !canGoPrevious) return
 
+    // Corner-grab affordance: where the pointer grabbed the page vertically,
+    // normalized to [-1 (top corner), 1 (bottom corner)].
+    const relativeY = event.clientY - rect.top
+    const tilt = rect.height > 0 ? (relativeY / rect.height - 0.5) * 2 : 0
+
     dragRef.current = {
       pointerId: event.pointerId,
       edge,
       startX: event.clientX,
       startY: event.clientY,
       width: rect.width,
+      tilt,
     }
     setPageDrag({ edge, progress: 0, releasing: false })
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -304,16 +358,16 @@ export default function App({ primaryBook, sharePath }: AppProps) {
     if (Math.abs(deltaY) > Math.abs(deltaX) * 1.4) return
     const travel = drag.edge === 'right' ? Math.max(0, -deltaX) : Math.max(0, deltaX)
     const progress = Math.min(1, travel / Math.max(160, drag.width * 0.62))
-    applyDragTransform(drag.edge, progress)
+    applyDragTransform(drag.edge, progress, drag.tilt)
     setPageDrag({ edge: drag.edge, progress, releasing: false })
   }, [applyDragTransform])
 
-  const settleDrag = useCallback((edge: 'left' | 'right', progress: number) => {
+  const settleDrag = useCallback((edge: 'left' | 'right', progress: number, tilt: number) => {
     const shouldComplete = progress >= 0.5
     setPageDrag({ edge, progress, releasing: true })
 
     if (shouldComplete) {
-      applyDragTransform(edge, 1)
+      applyDragTransform(edge, 1, tilt)
       window.setTimeout(() => {
         if (edge === 'right') goNext()
         else goPrevious()
@@ -321,7 +375,7 @@ export default function App({ primaryBook, sharePath }: AppProps) {
         setPageDrag(null)
       }, 190)
     } else {
-      applyDragTransform(edge, 0)
+      applyDragTransform(edge, 0, tilt)
       window.setTimeout(() => {
         clearDragTransform()
         setPageDrag(null)
@@ -336,7 +390,7 @@ export default function App({ primaryBook, sharePath }: AppProps) {
     event.currentTarget.releasePointerCapture(event.pointerId)
     setPageDrag((current) => {
       const progress = current?.edge === drag.edge ? current.progress : 0
-      settleDrag(drag.edge, progress)
+      settleDrag(drag.edge, progress, drag.tilt)
       return current
     })
   }, [settleDrag])

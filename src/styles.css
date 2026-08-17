@@ -129,31 +129,37 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   transform-style: preserve-3d;
   will-change: transform, opacity;
 }
-.book-stage.turn-next { animation: turnNext 470ms cubic-bezier(.2,.75,.18,1) both; }
-.book-stage.turn-previous { animation: turnPrevious 470ms cubic-bezier(.2,.75,.18,1) both; }
-.book-stage.is-dragging { animation: none; }
 .book-stage.is-dragging.is-releasing { transition: filter 220ms ease; }
 
-.book-stage.is-dragging.drag-right .page-wrap--first,
-.book-stage.is-dragging.drag-right .page-wrap--second:last-child:not(.page-wrap--first) {
-  transform-origin: var(--drag-origin, 100% 50%);
-  transform: translateY(calc(var(--drag-lift, 0px) * -1)) rotateY(var(--drag-rotate, 0deg));
+/* Dragging/animating the RIGHT edge turns the page that is visually on the
+ * right of the spread — page-wrap--second in spread mode, or the only page
+ * (page-wrap--first) in single-page mode. It must hinge at its LEFT edge
+ * (the spine), which is what --drag-origin is set to from JS. */
+.mode-spread.book-stage.is-dragging.drag-right .page-wrap--second,
+.mode-single.book-stage.is-dragging.drag-right .page-wrap--first {
+  position: relative;
+  z-index: 6;
+  transform-origin: var(--drag-origin, 0% 50%);
+  transform: rotateY(var(--drag-rotate, 0deg)) skewY(var(--drag-skew, 0deg));
   transition: none;
   box-shadow: -18px 14px 34px rgba(0,0,0, calc(var(--drag-shadow-opacity, 0) + .18));
 }
-.book-stage.is-dragging.drag-left .page-wrap--first {
-  transform-origin: var(--drag-origin, 0% 50%);
-  transform: translateY(calc(var(--drag-lift, 0px) * -1)) rotateY(var(--drag-rotate, 0deg));
+
+/* Dragging/animating the LEFT edge turns the page on the left of the spread
+ * — page-wrap--first — hinging at its RIGHT edge (the spine). */
+.mode-spread.book-stage.is-dragging.drag-left .page-wrap--first,
+.mode-single.book-stage.is-dragging.drag-left .page-wrap--first {
+  position: relative;
+  z-index: 6;
+  transform-origin: var(--drag-origin, 100% 50%);
+  transform: rotateY(var(--drag-rotate, 0deg)) skewY(var(--drag-skew, 0deg));
   transition: none;
   box-shadow: 18px 14px 34px rgba(0,0,0, calc(var(--drag-shadow-opacity, 0) + .18));
 }
+
 .book-stage.is-dragging.is-releasing .page-wrap--first,
 .book-stage.is-dragging.is-releasing .page-wrap--second {
   transition: transform 200ms cubic-bezier(.22,.72,.2,1), box-shadow 200ms ease;
-}
-.mode-single.book-stage.is-dragging.drag-right .page-wrap--first,
-.mode-single.book-stage.is-dragging.drag-left .page-wrap--first {
-  transform-origin: var(--drag-origin, 50% 50%);
 }
 
 .page-fold-shadow {
@@ -285,8 +291,6 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .mobile-only { display: none; }
 
-@keyframes turnNext { 0% { opacity: .28; transform: translateX(3%) rotateY(-11deg) scale(.985); filter: drop-shadow(-24px 20px 28px rgba(0,0,0,.42)) blur(.3px); } 100% { opacity: 1; transform: none; } }
-@keyframes turnPrevious { 0% { opacity: .28; transform: translateX(-3%) rotateY(11deg) scale(.985); filter: drop-shadow(24px 20px 28px rgba(0,0,0,.42)) blur(.3px); } 100% { opacity: 1; transform: none; } }
 @keyframes shimmer { to { background-position-x: -220%; } }
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes modalUp { from { opacity: 0; transform: translateY(16px) scale(.98); } }
