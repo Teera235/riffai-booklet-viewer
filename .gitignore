@@ -3,5 +3,8 @@ dist/
 .DS_Store
 *.local
 .vite/
+.firebase/
+firebase-service-account.json
+*-debug.log
 Booklet.pdf
 asset/LOGO_DARK_PNG.png
