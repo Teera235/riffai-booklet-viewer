@@ -59,7 +59,7 @@ Create a dedicated service account; do not use a personal account or a broad
 Owner credential:
 
 ```sh
-DEPLOYER_NAME="gitlab-firebase-hosting-deployer"
+DEPLOYER_NAME="gitlab-firebase-deployer"
 DEPLOYER_EMAIL="${DEPLOYER_NAME}@${FIREBASE_PROJECT_ID}.iam.gserviceaccount.com"
 
 gcloud iam service-accounts create "$DEPLOYER_NAME" \
@@ -79,10 +79,11 @@ gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
   --role roles/serviceusage.serviceUsageConsumer
 ```
 
-The request currently specifies a service-account JSON key. Generate it only
-after the project and roles are approved, store it directly as a protected
-GitLab **File** variable, and remove the local copy. Prefer GitLab workload
-identity federation in a follow-up change so a long-lived key is unnecessary.
+The organization policy disables service-account key creation. Production CI
+therefore uses GitLab OIDC with Google Workload Identity Federation and
+short-lived service-account impersonation. The provider accepts only project
+ID `26`, branch `main`, and environment `production`; no long-lived JSON key is
+created or stored in GitLab.
 
 ## 4. Configure GitLab
 
@@ -91,7 +92,6 @@ In **Settings → CI/CD → Variables**, add:
 | Variable | Type | Controls |
 | --- | --- | --- |
 | `FIREBASE_PROJECT_ID` | Variable | Protected |
-| `FIREBASE_SERVICE_ACCOUNT_KEY` | File | Protected and masked/hidden where supported |
 | `VITE_FIREBASE_API_KEY` | Variable | Protected |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Variable | Protected |
 | `VITE_FIREBASE_PROJECT_ID` | Variable | Protected |
